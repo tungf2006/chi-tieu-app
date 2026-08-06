@@ -1,0 +1,43 @@
+{
+  "info": {
+    "name": "ChiTieu API - CRUD tests",
+    "_postman_id": "00000000-0000-0000-0000-000000000000",
+    "description": "Collection for basic CRUD operations on /transactions",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Create Transaction",
+      "request": {
+        "method": "POST",
+        "header": [{"key":"Content-Type","value":"application/json"}],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"amount\": 100,\n  \"category\": \"Food\",\n  \"note\": \"Lunch\",\n  \"date\": \"2026-08-06\"\n}"
+        },
+        "url": {"raw": "http://localhost:8000/transactions","protocol":"http","host":["localhost"],"port":"8000","path":["transactions"]}
+      }
+    },
+    {
+      "name": "List Transactions",
+      "request": {"method":"GET","url":{"raw":"http://localhost:8000/transactions","protocol":"http","host":["localhost"],"port":"8000","path":["transactions"]}}
+    },
+    {
+      "name": "Get Transaction by ID",
+      "request": {"method":"GET","url":{"raw":"http://localhost:8000/transactions/:id","protocol":"http","host":["localhost"],"port":"8000","path":["transactions",":id"],"variable":[{"key":"id","value":"1"}]}}
+    },
+    {
+      "name": "Update Transaction",
+      "request": {
+        "method": "PUT",
+        "header": [{"key":"Content-Type","value":"application/json"}],
+        "body": {"mode":"raw","raw":"{ \"amount\": 250 }"},
+        "url": {"raw":"http://localhost:8000/transactions/:id","protocol":"http","host":["localhost"],"port":"8000","path":["transactions",":id"],"variable":[{"key":"id","value":"1"}]}
+      }
+    },
+    {
+      "name": "Delete Transaction",
+      "request": {"method":"DELETE","url":{"raw":"http://localhost:8000/transactions/:id","protocol":"http","host":["localhost"],"port":"8000","path":["transactions",":id"],"variable":[{"key":"id","value":"1"}]}}
+    }
+  ]
+}
