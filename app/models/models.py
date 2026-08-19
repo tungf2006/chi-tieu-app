@@ -3,7 +3,7 @@ from datetime import datetime
 from sqlalchemy import Column, Date, DateTime, Float, Integer, String, ForeignKey
 from sqlalchemy.orm import relationship
 
-from database import Base
+from app.core.database import Base
 
 
 class Transaction(Base):
@@ -17,7 +17,8 @@ class Transaction(Base):
     date = Column(Date)
     created_at = Column(DateTime, default=datetime.utcnow)
 
+
 class Category(Base):
     __tablename__ = "categories"
-    id = Column(Integer,primary_key=True, index=True)
+    id = Column(Integer, primary_key=True, index=True)
     name = Column(String(50), unique=True)

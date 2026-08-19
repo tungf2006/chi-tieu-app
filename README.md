@@ -9,6 +9,41 @@ A small FastAPI app for tracking simple transactions using SQLite.
 - Pandas (báo cáo & groupby)
 - Matplotlib (biểu đồ pie chart)
 
+## Project Structure
+```
+chi-tieu-app/
+├── app/
+│   ├── __init__.py
+│   ├── main.py                 # App factory & entry point
+│   ├── core/
+│   │   ├── __init__.py
+│   │   └── database.py         # DB engine, session, Base
+│   ├── models/
+│   │   ├── __init__.py
+│   │   └── models.py           # Transaction, Category models
+│   ├── schemas/
+│   │   ├── __init__.py
+│   │   └── schemas.py          # Pydantic schemas
+│   ├── services/
+│   │   ├── __init__.py
+│   │   ├── categorize.py       # Auto-categorize logic
+│   │   └── reports.py          # Report generation & charts
+│   └── api/
+│       ├── __init__.py
+│       └── routes/
+│           ├── __init__.py
+│           ├── transactions.py # Transaction CRUD & filter
+│           ├── categories.py   # Category CRUD
+│           └── reports.py      # Monthly report & chart
+├── alembic/                    # Database migrations
+├── tests/                      # Test files
+├── requirements.txt
+├── README.md
+├── .gitignore
+├── alembic.ini
+└── main.py                     # Entry point (runs app)
+```
+
 ## Prerequisites
 - Python 3.10+
 - Install dependencies:
@@ -44,6 +79,11 @@ pip install -r requirements.txt
 uvicorn main:app --reload
 ```
 
+Or run directly:
+```powershell
+python main.py
+```
+
 ## API Docs
 Once the server is running, interactive API documentation (Swagger UI) is available at:
 - `http://127.0.0.1:8000/docs`
@@ -67,10 +107,22 @@ Once the server is running, interactive API documentation (Swagger UI) is availa
 - `GET /reports/monthly/chart?month=8&year=2026` — pie chart image (PNG) of monthly spending
 
 ## Tests
-Run:
+Run unit tests:
 
 ```powershell
-python -m pytest -q
+python -m pytest tests/ -q
+```
+
+Run integration tests (requires server running on port 8000):
+
+```powershell
+python tests/test_all_endpoints.py
+```
+
+Test auto-categorize:
+
+```powershell
+python tests/test_autocat.py
 ```
 
 ## Key Concepts (Phase 2)
