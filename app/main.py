@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 
-from app.api.routes import transactions, categories, reports
+from app.api.routes import transactions, categories, reports, forecast
 from app.core.database import Base, engine
 
 
@@ -14,6 +14,7 @@ def create_app() -> FastAPI:
     app.include_router(transactions.router)
     app.include_router(categories.router)
     app.include_router(reports.router)
+    app.include_router(forecast.router)
 
     @app.get("/")
     def read_root():

@@ -8,6 +8,8 @@ A small FastAPI app for tracking simple transactions using SQLite.
 - SQLite
 - Pandas (báo cáo & groupby)
 - Matplotlib (biểu đồ pie chart)
+- Scikit-learn (Linear Regression)
+- Statsmodels (ARIMA)
 
 ## Project Structure
 ```
@@ -27,14 +29,16 @@ chi-tieu-app/
 │   ├── services/
 │   │   ├── __init__.py
 │   │   ├── categorize.py       # Auto-categorize logic
-│   │   └── reports.py          # Report generation & charts
+│   │   ├── reports.py          # Report generation & charts
+│   │   └── forecast.py         # Forecast: linear / seasonal / arima
 │   └── api/
 │       ├── __init__.py
 │       └── routes/
 │           ├── __init__.py
-│           ├── transactions.py # Transaction CRUD & filter
+│           ├── transactions.py # Transaction CRUD, filter & clear
 │           ├── categories.py   # Category CRUD
-│           └── reports.py      # Monthly report & chart
+│           ├── reports.py       # Monthly report & chart
+│           └── forecast.py      # Forecast endpoint (method selector)
 ├── alembic/                    # Database migrations
 ├── tests/                      # Test files
 ├── requirements.txt
@@ -58,6 +62,7 @@ pip install -r requirements.txt
 - Filter transactions by category / month / year
 - Monthly spending report grouped by category
 - Pie chart visualization of monthly spending
+- **Forecast** month-end total spending (Linear / Seasonal / ARIMA)
 - Uses SQLite (`chi-tieu.db`) and SQLAlchemy
 
 ## Run locally
@@ -106,6 +111,16 @@ Once the server is running, interactive API documentation (Swagger UI) is availa
 - `GET /reports/monthly?month=8&year=2026` — monthly spending summary grouped by category
 - `GET /reports/monthly/chart?month=8&year=2026` — pie chart image (PNG) of monthly spending
 
+### Forecast
+- `GET /forecast?month=8&year=2026&method=linear` — dự báo tổng chi tiêu cuối tháng
+  - `method=linear`  : Linear Regression trên chuỗi tích lũy (baseline / burn rate)
+  - `method=seasonal`: tách T7-CN, bắt mùa vụ tuần (MAPE thấp nhất với data có chu kỳ)
+  - `method=arima`    : ARIMA trên daily amount, bắt xu hướng tăng/giảm tốt nhất
+
+### Data management
+- `DELETE /transactions/clear` — xóa TOÀN BỘ giao dịch (reset DB giữa các lần test)
+- `DELETE /transactions?month=8&year=2026` — xóa giao dịch theo tháng/năm
+
 ## Tests
 Run unit tests:
 
@@ -130,6 +145,29 @@ python tests/test_autocat.py
 - **Migration**: Alembic quản lý schema thay vì `create_all()`
 - **GroupBy**: Pandas `df.groupby("category")["amount"].sum()` tổng hợp theo nhóm
 - **StreamingResponse**: Trả về binary stream (ảnh PNG) thay vì JSON
+
+## Key Concepts (Phase 3 — Forecasting)
+- **Time-series**: dữ liệu index theo thời gian, giá trị hiện tại phụ thuộc quá khứ (temporal dependency)
+- **Cumulative sum**: tổng tích lũy giúp làm mượt nhiễu, fit tuyến tính ổn định hơn daily amount
+- **Burn rate**: độ dốc (slope) của đường cumulative = tốc độ chi tiêu trung bình/ngày
+- **Linear Regression**: `y = slope·day + intercept` → ngoại suy tổng cuối tháng
+- **Seasonality**: mùa vụ tuần (cuối tuần cao hơn) → tách T7/CN để dự báo chính xác hơn
+- **ARIMA**: `(p,d,q)` với `d=1` (differencing) bắt xu hướng tăng/giảm; tốt cho TC3/TC5
+- **MAPE**: Mean Absolute Percentage Error — thước đo độ chính xác dự báo
+- **Outlier / IQR**: điểm bất thường phi chu kỳ làm lệch trend → phát hiện bằng IQR `[Q1−1.5·IQR, Q3+1.5·IQR]`
+- **Moving Average**: trung bình trượt 7 ngày tăng độ nhạy với biến động gần nhất
+
+### Kết quả đo (8 datasets, so sánh 3 method)
+| Dataset | Linear | Seasonal | ARIMA |
+|---------|--------|----------|-------|
+| TC1 PerfectLinear | 0.0% | 0.0% | 0.0% |
+| TC2 WeeklySeasonality | 1.9% | **0.0%** | 14.4% |
+| TC3 IncreasingTrend | 15.9% | 13.7% | **0.1%** |
+| TC5 DecreasingTrend | 25.5% | 22.0% | **0.3%** |
+| TC4 Outlier | 24.1% | 25.5% | 156.7%* |
+
+\* ARIMA nhạy cảm với outlier/ít dữ liệu → cần làm sạch (IQR) trước khi fit.
+Chi tiết: `docs/SOP_DAY30_Compare_Tune.md`, `tests/test_forecast_scenarios.py`.
 
 ## Postman
 A sample Postman collection is provided at `postman_collection.json`.

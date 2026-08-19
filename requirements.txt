@@ -3,5 +3,7 @@ uvicorn[standard]
 sqlalchemy
 pandas
 matplotlib
+scikit-learn
+statsmodels
 requests
 pytest

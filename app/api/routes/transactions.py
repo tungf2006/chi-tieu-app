@@ -40,6 +40,31 @@ def list_transactions(db: Session = Depends(get_db)):
     return db.query(Transaction).all()
 
 
+@router.delete("/clear")
+def clear_all_transactions(db: Session = Depends(get_db)):
+    """Xoa TOAN BO giao dich (dung de reset DB giua cac lan test)."""
+    deleted = db.query(Transaction).delete()
+    db.commit()
+    return {"message": f"Da xoa {deleted} giao dich", "deleted": deleted}
+
+
+@router.delete("")
+def delete_transactions_by_filter(
+    month: int | None = None,
+    year: int | None = None,
+    db: Session = Depends(get_db),
+):
+    """Xoa giao dich theo thang/nam (loc tuy chon)."""
+    query = db.query(Transaction)
+    if month is not None:
+        query = query.filter(extract("month", Transaction.date) == month)
+    if year is not None:
+        query = query.filter(extract("year", Transaction.date) == year)
+    deleted = query.delete()
+    db.commit()
+    return {"message": f"Da xoa {deleted} giao dich", "deleted": deleted}
+
+
 @router.get("/filter")
 def filter_transactions(
     category_id: int | None = None,
