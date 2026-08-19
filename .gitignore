@@ -8,4 +8,6 @@ __pycache__/
 *.egg-info/
 .DS_Store
 .idea/
-.env
+*.png
+test_*.py
+test_payload.json
