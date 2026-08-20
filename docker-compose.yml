@@ -1,0 +1,33 @@
+services:
+  web:
+    build: .
+    container_name: chi-tieu-web
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONUNBUFFERED=1
+      # DB nam trong volume /app/data (xem DATABASE_URL o Dockerfile)
+      - DATABASE_URL=sqlite:////app/data/chi-tieu.db
+    volumes:
+      - app-data:/app/data
+    restart: unless-stopped
+
+# ----------------------------------------------------------------
+# Tuy chon: Neu muon chuyen sang PostgreSQL thay vi SQLite,
+# bo comment phan duoi va sua DATABASE_URL thanh:
+#   postgresql://appuser:apppass@db:5432/chitieu
+# Dong thoi cap nhat app/core/database.py de dung postgresql://
+# ----------------------------------------------------------------
+#  db:
+#    image: postgres:16-alpine
+#    environment:
+#      - POSTGRES_USER=appuser
+#      - POSTGRES_PASSWORD=apppass
+#      - POSTGRES_DB=chitieu
+#    volumes:
+#      - pg-data:/var/lib/postgresql/data
+#    restart: unless-stopped
+
+volumes:
+  app-data:
+#  pg-data:
