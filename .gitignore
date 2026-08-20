@@ -3,6 +3,8 @@ __pycache__/
 *.pyc
 *.db
 .env
+.agents/
+.claude/
 .vscode/
 .pytest_cache/
 *.egg-info/

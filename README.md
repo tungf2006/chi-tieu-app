@@ -1,163 +1,260 @@
-# Chi Tieu App
+# Chi Tieu App — Personal Expense Tracker
 
-A small FastAPI app for tracking simple transactions using SQLite.
+> A full-stack personal finance application: log daily spending, auto-categorize it, visualize monthly breakdowns, and forecast month-end totals — all through a clean Streamlit UI backed by a FastAPI service and PostgreSQL.
 
-## Tech Stack
-- FastAPI
-- SQLAlchemy
-- SQLite
-- Pandas (báo cáo & groupby)
-- Matplotlib (biểu đồ pie chart)
-- Scikit-learn (Linear Regression)
-- Statsmodels (ARIMA)
+---
 
-## Project Structure
-```
-chi-tieu-app/
-├── app/
-│   ├── __init__.py
-│   ├── main.py                 # App factory & entry point
-│   ├── core/
-│   │   ├── __init__.py
-│   │   └── database.py         # DB engine, session, Base
-│   ├── models/
-│   │   ├── __init__.py
-│   │   └── models.py           # Transaction, Category models
-│   ├── schemas/
-│   │   ├── __init__.py
-│   │   └── schemas.py          # Pydantic schemas
-│   ├── services/
-│   │   ├── __init__.py
-│   │   ├── categorize.py       # Auto-categorize logic
-│   │   ├── reports.py          # Report generation & charts
-│   │   └── forecast.py         # Forecast: linear / seasonal / arima
-│   └── api/
-│       ├── __init__.py
-│       └── routes/
-│           ├── __init__.py
-│           ├── transactions.py # Transaction CRUD, filter & clear
-│           ├── categories.py   # Category CRUD
-│           ├── reports.py       # Monthly report & chart
-│           └── forecast.py      # Forecast endpoint (method selector)
-├── alembic/                    # Database migrations
-├── tests/                      # Test files
-├── requirements.txt
-├── README.md
-├── .gitignore
-├── alembic.ini
-└── main.py                     # Entry point (runs app)
+## 📌 Project Purpose
+
+**Chi Tieu App** helps individuals track where their money goes. It solves the common problem of *"I don't know how much I'll spend by the end of the month"* by combining:
+
+- **Easy data entry** — add transactions with a note; the system auto-categorizes them (e.g. "ăn trưa" → *Food*).
+- **Visual insights** — monthly pie charts show spending distribution by category.
+- **Forecasting** — three statistical models (Linear Regression, Seasonal weekday/weekend split, and ARIMA) project the total month-end spend and compare it against a user-defined budget.
+
+The goal is a lightweight, self-hostable expense tracker that demonstrates a real-world FastAPI + Streamlit + PostgreSQL stack, suitable for learning and portfolio use.
+
+---
+
+## 🏗️ System Architecture
+
+The application is split into three layers. The **Streamlit frontend** talks to the **FastAPI backend** over REST; the backend persists data through **SQLAlchemy** into **PostgreSQL** (running as a separate container). A SQLite database is still supported for lightweight local development via the `DATABASE_URL` environment variable.
+
+```mermaid
+flowchart LR
+    U[User / Browser] -->|HTTP :8501| FE[Streamlit Frontend<br/>frontend/streamlit_app.py]
+    FE -->|REST API :8000| API[FastAPI Backend<br/>app/main.py]
+    API -->|SQLAlchemy ORM| DB[(PostgreSQL<br/>service: db :5432)]
+    API -.->|fallback if DATABASE_URL=sqlite| SQL[(SQLite<br/>chi-tieu.db)]
+
+    subgraph Docker [docker-compose]
+        API
+        DB
+    end
 ```
 
-## Prerequisites
-- Python 3.10+
-- Install dependencies:
+### Component overview
+
+| Layer | Technology | Responsibility |
+|-------|-----------|----------------|
+| **Frontend** | Streamlit (`frontend/streamlit_app.py`) | Forms for entry, tables, charts, forecast UI |
+| **API** | FastAPI + SQLAlchemy | CRUD, filtering, reporting, forecasting |
+| **Database** | PostgreSQL 15 (Docker) / SQLite (local) | Persistent storage of transactions & categories |
+| **Forecasting** | scikit-learn, statsmodels | Linear / Seasonal / ARIMA projections |
+| **Charts** | Matplotlib | Monthly spending pie charts |
+
+### Request flow
+
+1. User interacts with the Streamlit UI (port **8501**).
+2. Streamlit issues `requests` calls to the FastAPI service (port **8000**).
+3. FastAPI validates input, queries/manipulates data via SQLAlchemy, and returns JSON or a PNG image stream.
+4. PostgreSQL stores the data; `pg_isready` health checks ensure the API only starts once the DB is ready (`depends_on: condition: service_healthy`).
+
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+
+- **Docker Desktop** (Docker Engine + Compose v2)
+- **Python 3.10+** (only needed if you run the Streamlit frontend locally instead of in Docker)
+- `git`
+
+### 1. Clone and enter the project
 
 ```powershell
+git clone https://github.com/tungf2006/chi-tieu-app.git
+cd chi-tieu-app
+```
+
+### 2. Start the backend with Docker Compose
+
+```powershell
+docker compose up -d --build
+```
+
+This builds the `api` image and starts two services:
+
+- `chi-tieu-api` — FastAPI on `http://localhost:8000`
+- `chi-tieu-db` — PostgreSQL 15 on `localhost:5432` (database `chitieu_db`)
+
+> The API waits for the database to be healthy before accepting connections.
+
+### 3. (Optional) Run the Streamlit frontend
+
+The frontend is a standard Python app. Create a virtual environment and install dependencies:
+
+```powershell
+python -m venv venv
+venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-## What it does
-- Create, read, update, delete transactions
-- Auto-categorize transactions by note (regex)
-- Filter transactions by category / month / year
-- Monthly spending report grouped by category
-- Pie chart visualization of monthly spending
-- **Forecast** month-end total spending (Linear / Seasonal / ARIMA)
-- Uses SQLite (`chi-tieu.db`) and SQLAlchemy
+Then launch it (it connects to `http://localhost:8000` by default):
 
-## Run locally
-1. Activate your virtualenv
+```powershell
+streamlit run frontend/streamlit_app.py
+# or, to be explicit inside the venv:
+# .\venv\Scripts\python.exe -m streamlit run frontend/streamlit_app.py
+```
+
+The UI opens at **http://localhost:8501**. To point it at a different API host, set the env var first:
+
+```powershell
+$env:API_BASE = "http://localhost:8000"
+```
+
+### 4. Verify
+
+- **API docs (Swagger):** http://localhost:8000/docs
+- **Interactive UI:** http://localhost:8501
+- **Health:** `curl http://localhost:8000/` → `{"message":"Hello World"}`
+
+### Local development without Docker
+
+You can also run everything natively (SQLite by default):
 
 ```powershell
 venv\Scripts\activate
-```
-
-2. Install dependencies
-
-```powershell
 pip install -r requirements.txt
+uvicorn main:app --reload          # API on :8000
+streamlit run frontend/streamlit_app.py   # UI on :8501
 ```
 
-3. Start the app
+> ⚠️ **Security note:** the PostgreSQL password is no longer hardcoded — `docker-compose.yml` reads it from the environment with a safe default (`123456`). For any real deployment, copy `.env.example` to `.env` (gitignored) and set a strong password — never commit the real `.env`.
 
-```powershell
-uvicorn main:app --reload
+---
+
+## 📚 API Documentation
+
+Base URL: `http://localhost:8000`
+
+Interactive documentation is auto-generated and available at `/docs` (Swagger UI) and `/redoc`.
+
+### Transactions (`/transactions`)
+
+| Method | Endpoint | Function |
+|--------|----------|----------|
+| `POST` | `/transactions` | Create a transaction. Auto-categorizes from `note` if `category_id` is omitted. |
+| `GET` | `/transactions` | List all transactions. |
+| `GET` | `/transactions/filter?category_id=&month=&year=` | Filter by category, month, and/or year. |
+| `GET` | `/transactions/{id}` | Retrieve a single transaction. |
+| `PUT` | `/transactions/{id}` | Partially update a transaction. |
+| `DELETE` | `/transactions/{id}` | Delete a single transaction. |
+| `DELETE` | `/transactions/clear` | Delete **all** transactions (used to reset data between tests). |
+| `DELETE` | `/transactions?month=&year=` | Delete transactions for a given month/year. |
+
+**Create example**
+```bash
+curl -X POST http://localhost:8000/transactions \
+  -H "Content-Type: application/json" \
+  -d '{"amount": 50000, "note": "ăn trưa", "date": "2026-08-21"}'
 ```
 
-Or run directly:
-```powershell
-python main.py
+### Categories (`/categories`)
+
+| Method | Endpoint | Function |
+|--------|----------|----------|
+| `POST` | `/categories` | Create a category. |
+| `GET` | `/categories` | List all categories. |
+
+### Reports (`/reports`)
+
+| Method | Endpoint | Function |
+|--------|----------|----------|
+| `GET` | `/reports/monthly?month=&year=` | Monthly spending summary grouped by category (JSON). |
+| `GET` | `/reports/monthly/chart?month=&year=` | Pie-chart image (PNG) of monthly spending. |
+
+### Forecast (`/forecast`)
+
+| Method | Endpoint | Function |
+|--------|----------|----------|
+| `GET` | `/forecast?month=&year=&method=&budget=` | Forecast month-end total spend. |
+
+Query parameters:
+
+- `month` *(int, required)* — target month (1–12)
+- `year` *(int, required)* — target year
+- `method` *(str)* — one of:
+  - `linear` — Linear Regression on cumulative spend (baseline / burn rate)
+  - `seasonal` — weekday/weekend split (captures weekly seasonality)
+  - `arima` — ARIMA on daily amounts (captures trend; falls back to linear on <5 points)
+- `budget` *(float, optional)* — your spending limit; when provided the response includes `delta`, `status` (`over`/`under`), and `percent_used`.
+
+**Forecast example**
+```bash
+curl "http://localhost:8000/forecast?month=8&year=2026&method=arima&budget=5000000"
 ```
 
-## API Docs
-Once the server is running, interactive API documentation (Swagger UI) is available at:
-- `http://127.0.0.1:8000/docs`
+---
 
-## Endpoints
+## 🖼️ Visuals
 
-### Transactions
-- `POST /transactions` — create a transaction (auto-categorize if no category_id)
-- `GET /transactions` — list all transactions
-- `GET /transactions/filter?category_id=1&month=8&year=2026` — filter by category/month/year
-- `GET /transactions/{id}` — get one transaction
-- `PUT /transactions/{id}` — update a transaction (partial updates)
-- `DELETE /transactions/{id}` — delete a transaction
+> Screenshots below are placeholders. Capture the running app and save images under `docs/screenshots/`, then update the paths.
 
-### Categories
-- `POST /categories` — create a category
-- `GET /categories` — list all categories
+### Streamlit UI
 
-### Reports
-- `GET /reports/monthly?month=8&year=2026` — monthly spending summary grouped by category
-- `GET /reports/monthly/chart?month=8&year=2026` — pie chart image (PNG) of monthly spending
+| View | Screenshot |
+|------|------------|
+| Transaction entry form | ![Transaction entry](docs/screenshots/streamlit-input.png) |
+| Transaction list & total | ![Transaction list](docs/screenshots/streamlit-list.png) |
+| Charts & forecasting page | ![Charts & forecast](docs/screenshots/streamlit-charts.png) |
 
-### Forecast
-- `GET /forecast?month=8&year=2026&method=linear` — dự báo tổng chi tiêu cuối tháng
-  - `method=linear`  : Linear Regression trên chuỗi tích lũy (baseline / burn rate)
-  - `method=seasonal`: tách T7-CN, bắt mùa vụ tuần (MAPE thấp nhất với data có chu kỳ)
-  - `method=arima`    : ARIMA trên daily amount, bắt xu hướng tăng/giảm tốt nhất
+### Data Visualizations
 
-### Data management
-- `DELETE /transactions/clear` — xóa TOÀN BỘ giao dịch (reset DB giữa các lần test)
-- `DELETE /transactions?month=8&year=2026` — xóa giao dịch theo tháng/năm
+| Chart | Screenshot |
+|-------|------------|
+| Monthly spending pie chart (`/reports/monthly/chart`) | ![Pie chart](docs/screenshots/monthly-pie.png) |
+| Forecast summary with budget comparison | ![Forecast](docs/screenshots/forecast-summary.png) |
 
-## Tests
-Run unit tests:
+---
 
-```powershell
-python -m pytest tests/ -q
+## 🧪 Tech Stack
+
+- **Backend:** FastAPI, SQLAlchemy, Pydantic
+- **Database:** PostgreSQL 15 (Docker) / SQLite (local dev)
+- **Forecasting:** scikit-learn (Linear Regression), statsmodels (ARIMA)
+- **Visualization:** Matplotlib (pie charts)
+- **Frontend:** Streamlit
+- **Containerization:** Docker, Docker Compose
+
+## 📁 Project Structure
+
+```
+chi-tieu-app/
+├── app/
+│   ├── main.py                 # App factory & entry point
+│   ├── core/database.py        # Engine, session, Base (env-driven DATABASE_URL)
+│   ├── models/                 # Transaction, Category ORM models
+│   ├── schemas/                # Pydantic request/response schemas
+│   ├── services/
+│   │   ├── categorize.py       # Auto-categorize from note
+│   │   ├── reports.py          # Monthly summary & pie chart
+│   │   └── forecast.py         # linear / seasonal / arima
+│   └── api/routes/
+│       ├── transactions.py
+│       ├── categories.py
+│       ├── reports.py
+│       └── forecast.py
+├── frontend/
+│   └── streamlit_app.py        # Streamlit UI (entry at :8501)
+├── alembic/                    # Database migrations
+├── tests/                      # Unit & scenario tests
+├── docker-compose.yml          # api + db (PostgreSQL) services
+├── Dockerfile
+└── requirements.txt
 ```
 
-Run integration tests (requires server running on port 8000):
+## 🔑 Key Concepts
 
-```powershell
-python tests/test_all_endpoints.py
-```
+- **Foreign Key:** `Transaction.category_id` → `Category.id` (one-to-many).
+- **Migrations:** Alembic manages schema (instead of `create_all()`).
+- **GroupBy:** Pandas `df.groupby("category")["amount"].sum()` aggregates spend per category.
+- **StreamingResponse:** Returns a binary PNG stream for charts instead of JSON.
+- **Forecasting:** time-series extrapolation with cumulative sums (linear), weekly seasonality, and ARIMA differencing.
 
-Test auto-categorize:
+### Forecast benchmark (8 datasets, 3 methods)
 
-```powershell
-python tests/test_autocat.py
-```
-
-## Key Concepts (Phase 2)
-- **Foreign Key**: `Transaction.category_id` → `Category.id` (mối quan hệ 1-n)
-- **Migration**: Alembic quản lý schema thay vì `create_all()`
-- **GroupBy**: Pandas `df.groupby("category")["amount"].sum()` tổng hợp theo nhóm
-- **StreamingResponse**: Trả về binary stream (ảnh PNG) thay vì JSON
-
-## Key Concepts (Phase 3 — Forecasting)
-- **Time-series**: dữ liệu index theo thời gian, giá trị hiện tại phụ thuộc quá khứ (temporal dependency)
-- **Cumulative sum**: tổng tích lũy giúp làm mượt nhiễu, fit tuyến tính ổn định hơn daily amount
-- **Burn rate**: độ dốc (slope) của đường cumulative = tốc độ chi tiêu trung bình/ngày
-- **Linear Regression**: `y = slope·day + intercept` → ngoại suy tổng cuối tháng
-- **Seasonality**: mùa vụ tuần (cuối tuần cao hơn) → tách T7/CN để dự báo chính xác hơn
-- **ARIMA**: `(p,d,q)` với `d=1` (differencing) bắt xu hướng tăng/giảm; tốt cho TC3/TC5
-- **MAPE**: Mean Absolute Percentage Error — thước đo độ chính xác dự báo
-- **Outlier / IQR**: điểm bất thường phi chu kỳ làm lệch trend → phát hiện bằng IQR `[Q1−1.5·IQR, Q3+1.5·IQR]`
-- **Moving Average**: trung bình trượt 7 ngày tăng độ nhạy với biến động gần nhất
-
-### Kết quả đo (8 datasets, so sánh 3 method)
 | Dataset | Linear | Seasonal | ARIMA |
 |---------|--------|----------|-------|
 | TC1 PerfectLinear | 0.0% | 0.0% | 0.0% |
@@ -166,8 +263,16 @@ python tests/test_autocat.py
 | TC5 DecreasingTrend | 25.5% | 22.0% | **0.3%** |
 | TC4 Outlier | 24.1% | 25.5% | 156.7%* |
 
-\* ARIMA nhạy cảm với outlier/ít dữ liệu → cần làm sạch (IQR) trước khi fit.
-Chi tiết: `docs/SOP_DAY30_Compare_Tune.md`, `tests/test_forecast_scenarios.py`.
+\* ARIMA is sensitive to outliers / sparse data — clean with IQR before fitting.
+See `docs/SOP_DAY30_Compare_Tune.md` and `tests/test_forecast_scenarios.py`.
 
-## Postman
-A sample Postman collection is provided at `postman_collection.json`.
+## ✅ Tests
+
+```powershell
+venv\Scripts\activate
+python -m pytest tests/ -q
+```
+
+## 📄 License
+
+MIT — free for personal and educational use.

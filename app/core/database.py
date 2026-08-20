@@ -5,8 +5,14 @@ import os
 
 # Doc tu env (Docker/compose), mac dinh SQLite local
 SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./chi-tieu.db")
+
+# chi sqlite moi can check_same_thread; postgres khong chap nhan tham so nay
+connect_args = {}
+if SQLALCHEMY_DATABASE_URL.startswith("sqlite"):
+    connect_args = {"check_same_thread": False}
+
 engine = create_engine(
-    SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
+    SQLALCHEMY_DATABASE_URL, connect_args=connect_args
 )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()

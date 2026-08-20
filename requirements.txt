@@ -7,3 +7,5 @@ scikit-learn
 statsmodels
 requests
 pytest
+psycopg2-binary
+streamlit

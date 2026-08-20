@@ -1,33 +1,38 @@
+version: "3.8"
+
 services:
-  web:
+  api:
     build: .
-    container_name: chi-tieu-web
+    container_name: chi-tieu-api
     ports:
       - "8000:8000"
+    # Khoi dong db truoc, va chi chay api khi db DA SAN SANG
+    depends_on:
+      db:
+        condition: service_healthy
     environment:
-      - PYTHONUNBUFFERED=1
-      # DB nam trong volume /app/data (xem DATABASE_URL o Dockerfile)
-      - DATABASE_URL=sqlite:////app/data/chi-tieu.db
-    volumes:
-      - app-data:/app/data
+      # Ten host la "db" (ten service), KHONG phai localhost
+      # Ghi de bang file .env (da .gitignore) neu muon dung mat khau that
+      - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:123456@db:5432/chitieu_db}
     restart: unless-stopped
 
-# ----------------------------------------------------------------
-# Tuy chon: Neu muon chuyen sang PostgreSQL thay vi SQLite,
-# bo comment phan duoi va sua DATABASE_URL thanh:
-#   postgresql://appuser:apppass@db:5432/chitieu
-# Dong thoi cap nhat app/core/database.py de dung postgresql://
-# ----------------------------------------------------------------
-#  db:
-#    image: postgres:16-alpine
-#    environment:
-#      - POSTGRES_USER=appuser
-#      - POSTGRES_PASSWORD=apppass
-#      - POSTGRES_DB=chitieu
-#    volumes:
-#      - pg-data:/var/lib/postgresql/data
-#    restart: unless-stopped
+  db:
+    image: postgres:15
+    container_name: chi-tieu-db
+    environment:
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-123456}
+      - POSTGRES_DB=chitieu_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    # Kiem tra db thuc su san sang tiep nhan ket noi
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
 
 volumes:
-  app-data:
-#  pg-data:
+  pg-data:
